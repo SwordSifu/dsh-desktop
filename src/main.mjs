@@ -21,7 +21,34 @@ function log(...args) {
   console.log('[dsh-desktop]', ...args)
 }
 
-function createWindow(url) {
+let bootedUrl = null
+
+function dataUrl(html) {
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
+}
+
+const LOADING_HTML = dataUrl(`<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;background:#0b1220;color:#93a3bd;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh">
+<div style="text-align:center">
+  <div style="font-size:18px;color:#dbe4f0">正在启动 DeepSeek Harness…</div>
+  <div style="margin-top:10px;font-size:13px">首次启动可能需要一点时间</div>
+</div>
+</body></html>`)
+
+function errorHtml(msg) {
+  return dataUrl(`<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;background:#0b1220;color:#93a3bd;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh">
+<div style="text-align:center;max-width:480px;padding:24px">
+  <div style="font-size:18px;color:#f0a8a8">启动失败</div>
+  <div style="margin-top:12px;font-size:13px;line-height:1.6">${msg}</div>
+  <div style="margin-top:12px;font-size:13px">应用会在后台自动重试；你也可以从托盘菜单退出后重新打开。</div>
+</div>
+</body></html>`)
+}
+
+function createWindow() {
   const { width, height } = settings.get('window')
   mainWindow = new BrowserWindow({
     width,
@@ -58,10 +85,16 @@ function createWindow(url) {
   })
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.webContents.on('will-navigate', (e, target) => {
-    if (!target.startsWith(url)) e.preventDefault()
+    const allowed = target.startsWith('data:') || (bootedUrl != null && target.startsWith(bootedUrl))
+    if (!allowed) e.preventDefault()
   })
 
-  void mainWindow.loadURL(url)
+  void mainWindow.loadURL(LOADING_HTML)
+}
+
+function showBootError(msg) {
+  if (!mainWindow) createWindow()
+  void mainWindow.loadURL(errorHtml(msg))
 }
 
 function setupTray() {
@@ -118,11 +151,9 @@ async function bootDshLoop() {
     try {
       const { url } = await dshProcess.start()
       log('dsh ready at', url)
-      if (mainWindow) {
-        void mainWindow.loadURL(url)
-      } else {
-        createWindow(url)
-      }
+      bootedUrl = url
+      if (!mainWindow) createWindow()
+      void mainWindow.loadURL(url)
       if (notifier) notifier.stop()
       notifier = new DshNotifier({ baseUrl: url, notify, log })
       notifier.start()
@@ -131,6 +162,7 @@ async function bootDshLoop() {
       await dshProcess.waitForExit()
     } catch (err) {
       log('boot failed:', err.message)
+      showBootError('dsh 进程未能启动。')
       await new Promise((r) => setTimeout(r, 500))
     }
   }
@@ -183,9 +215,11 @@ if (!gotLock) {
     })
     dshProcess.onGiveUp = (code, signal) => {
       log(`dsh gave up after restarts (code=${code} signal=${signal})`)
+      showBootError(`dsh 进程反复启动失败（code=${code}${signal ? ` signal=${signal}` : ''}）。`)
     }
 
     setupTray()
+    createWindow()
     bootLoop = bootDshLoop()
   })
 }
