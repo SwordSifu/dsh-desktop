@@ -1,0 +1,6 @@
+node_modules/
+dist/
+resources/node/
+*.log
+tmp-*
+test/tmp-*
