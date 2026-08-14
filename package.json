@@ -25,6 +25,7 @@
     "npmRebuild": false,
     "files": [
       "src/**",
+      "icons/**",
       "package.json"
     ],
     "extraResources": [

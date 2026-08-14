@@ -51,7 +51,7 @@ src/dsh-process.mjs    纯 Node 子进程托管：spawn/URL 解析/健康检查/
 src/notifier.mjs       下行 WS 流监听 → 系统通知（Node 原生 WebSocket，零依赖）
 src/settings.mjs       userData/settings.json 持久化（窗口状态、托盘偏好）
 test/                  node:test 单测
-scripts/gen-icon.mjs   零依赖 PNG 图标生成
+scripts/gen-deepseek-icon.mjs   DeepSeek 鲸鱼 logo 图标生成（sharp 渲染，源码见 icons/deepseek-mark.svg）
 ```
 
 ## 测试
